@@ -252,16 +252,14 @@ export default function Premium({ userProfile }: { userProfile: any }) {
                   <div className="flex flex-col items-center gap-3 p-4 bg-white rounded-2xl mb-4">
                     <img 
                       src={
-                        selectedPlan.id === 'silver' ? settings?.silverQrCodeUrl :
-                        selectedPlan.id === 'gold' ? settings?.goldQrCodeUrl :
-                        settings?.vipQrCodeUrl || '/qr-code.png'
+                        (selectedPlan.id === 'silver' ? settings?.silverQrCodeUrl :
+                         selectedPlan.id === 'gold' ? settings?.goldQrCodeUrl :
+                         settings?.vipQrCodeUrl) || 
+                        `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=Pay%20INR%20${selectedPlan.price}%20for%20${selectedPlan.name}%20Plan`
                       } 
                       alt={`${selectedPlan.name} QR Code`} 
                       className="w-48 h-48 object-contain"
                       referrerPolicy="no-referrer"
-                      onError={(e) => {
-                        (e.target as HTMLImageElement).src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=Pay%20INR%20${selectedPlan.price}%20for%20${selectedPlan.name}%20Plan`;
-                      }}
                     />
                     <div className="flex items-center gap-2 text-[10px] font-bold text-slate-900 uppercase tracking-widest">
                       <QrCode className="h-3 w-3" />

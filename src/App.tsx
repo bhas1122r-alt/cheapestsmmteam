@@ -20,6 +20,7 @@ import Tickets from './pages/Tickets';
 import CreateTicket from './pages/CreateTicket';
 import Chat from './pages/Chat';
 import Premium from './pages/Premium';
+import Cheapest from './pages/Cheapest';
 import Navbar from './components/Navbar';
 import Sidebar from './components/Sidebar';
 import NotificationManager from './components/NotificationManager';
@@ -92,6 +93,7 @@ export default function App() {
               const batch = writeBatch(db);
               const defaults = [
                 { label: 'New Order', icon: 'ShoppingCart', path: '/', isVisible: true, order: 1 },
+                { label: 'Cheapest', icon: 'Zap', path: '/cheapest', isVisible: true, order: 1.5 },
                 { label: 'Mass Orders', icon: 'Layers', path: '/mass-orders', isVisible: true, order: 2 },
                 { label: 'Orders', icon: 'History', path: '/orders', isVisible: true, order: 3 },
                 { label: 'Services', icon: 'List', path: '/services', isVisible: true, order: 4 },
@@ -110,7 +112,7 @@ export default function App() {
               });
               await batch.commit();
             } else {
-              // Ensure Premium exists for existing users
+              // Ensure Premium & Cheapest exist for existing users
               const premiumExists = navSnap.docs.some(d => d.data().path === '/premium');
               if (!premiumExists) {
                 await addDoc(collection(db, 'navigation'), { 
@@ -119,6 +121,17 @@ export default function App() {
                   path: '/premium', 
                   isVisible: true, 
                   order: 8.5 
+                });
+              }
+
+              const cheapestExists = navSnap.docs.some(d => d.data().path === '/cheapest');
+              if (!cheapestExists) {
+                await addDoc(collection(db, 'navigation'), { 
+                  label: 'Cheapest', 
+                  icon: 'Zap', 
+                  path: '/cheapest', 
+                  isVisible: true, 
+                  order: 1.5 
                 });
               }
             }
@@ -187,6 +200,10 @@ export default function App() {
               <Route 
                 path="/" 
                 element={user ? <Dashboard userProfile={userProfile} /> : <Navigate to="/login" />} 
+              />
+              <Route 
+                path="/cheapest" 
+                element={user ? <Cheapest userProfile={userProfile} /> : <Navigate to="/login" />} 
               />
               <Route 
                 path="/admin/*" 

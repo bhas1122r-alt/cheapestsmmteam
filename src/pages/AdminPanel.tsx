@@ -5,7 +5,7 @@ import { db, handleFirestoreError, OperationType } from '../lib/firebase';
 import { formatCurrency, cn } from '../lib/utils';
 import { motion, AnimatePresence } from 'motion/react';
 import * as LucideIcons from 'lucide-react';
-import { Plus, Trash2, Edit2, Users, Package, ShoppingBag, Search, X, Check, ArrowUpCircle, Menu, Eye, EyeOff, AlertCircle, Info, Loader2 } from 'lucide-react';
+import { Plus, Trash2, Edit2, Users, Package, ShoppingBag, Search, X, Check, ArrowUpCircle, Menu, Eye, EyeOff, AlertCircle, Info, Loader2, Upload } from 'lucide-react';
 
 export default function AdminPanel() {
   const [activeTab, setActiveTab] = useState<'dashboard' | 'services' | 'orders' | 'users' | 'navigation' | 'fundRequests' | 'tickets' | 'subscriptions'>('dashboard');
@@ -540,41 +540,116 @@ export default function AdminPanel() {
     }
   };
 
+  const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>, setter: (val: string) => void) => {
+    const file = e.target.files?.[0];
+    if (file) {
+      // Basic size check before processing
+      if (file.size > 2 * 1024 * 1024) { 
+        showNotification('error', 'Image size must be less than 2MB before compression');
+        return;
+      }
+
+      const reader = new FileReader();
+      reader.onload = (event) => {
+        const img = new Image();
+        img.onload = () => {
+          const canvas = document.createElement('canvas');
+          const MAX_WIDTH = 400;
+          const MAX_HEIGHT = 400;
+          let width = img.width;
+          let height = img.height;
+
+          if (width > height) {
+            if (width > MAX_WIDTH) {
+              height *= MAX_WIDTH / width;
+              width = MAX_WIDTH;
+            }
+          } else {
+            if (height > MAX_HEIGHT) {
+              width *= MAX_HEIGHT / height;
+              height = MAX_HEIGHT;
+            }
+          }
+
+          canvas.width = width;
+          canvas.height = height;
+          const ctx = canvas.getContext('2d');
+          if (ctx) {
+            ctx.drawImage(img, 0, 0, width, height);
+            // Compress as JPEG with 0.7 quality
+            const compressedBase64 = canvas.toDataURL('image/jpeg', 0.7);
+            setter(compressedBase64);
+          }
+        };
+        img.src = event.target?.result as string;
+      };
+      reader.readAsDataURL(file);
+    }
+  };
+
   const handleUpdatePaymentSettings = async () => {
+    const payload = {
+      qrCodeUrl,
+      usdtQrCodeUrl,
+      usdtWalletAddress,
+      usdtNetwork,
+      minDepositINR,
+      minDepositUSDT,
+      referralBonusPercent,
+      smmApiUrl,
+      smmApiKey,
+      silverQrCodeUrl,
+      goldQrCodeUrl,
+      vipQrCodeUrl,
+      updatedAt: serverTimestamp()
+    };
+
+    // Approximate size check
+    const size = JSON.stringify(payload).length;
+    if (size > 1000000) {
+      showNotification('error', 'Settings data is too large. Please re-upload QR codes to compress them.');
+      return;
+    }
+
     try {
-      await setDoc(doc(db, 'settings', 'payment'), {
-        qrCodeUrl,
-        usdtQrCodeUrl,
-        usdtWalletAddress,
-        usdtNetwork,
-        minDepositINR,
-        minDepositUSDT,
-        referralBonusPercent,
-        smmApiUrl,
-        smmApiKey,
-        silverQrCodeUrl,
-        goldQrCodeUrl,
-        vipQrCodeUrl,
-        updatedAt: serverTimestamp()
-      });
+      await setDoc(doc(db, 'settings', 'payment'), payload);
       showNotification('success', 'Settings updated successfully');
-    } catch (err) {
-      showNotification('error', 'Failed to update settings');
+    } catch (err: any) {
+      console.error('Error updating settings:', err);
+      if (err.message?.includes('exceeds the maximum allowed size')) {
+        showNotification('error', 'Settings data is too large. Please re-upload QR codes to compress them.');
+      } else {
+        showNotification('error', 'Failed to update settings');
+      }
       handleFirestoreError(err, OperationType.WRITE, 'settings/payment');
     }
   };
 
   const handleUpdateSubscriptionSettings = async () => {
+    const payload = {
+      silverQrCodeUrl,
+      goldQrCodeUrl,
+      vipQrCodeUrl,
+      updatedAt: serverTimestamp()
+    };
+
+    // Approximate size check
+    const size = JSON.stringify(payload).length;
+    if (size > 1000000) {
+      showNotification('error', 'Subscription images are too large. Please re-upload them.');
+      return;
+    }
+
     try {
-      await updateDoc(doc(db, 'settings', 'payment'), {
-        silverQrCodeUrl,
-        goldQrCodeUrl,
-        vipQrCodeUrl,
-        updatedAt: serverTimestamp()
-      });
+      await updateDoc(doc(db, 'settings', 'payment'), payload);
       showNotification('success', 'Subscription settings updated');
-    } catch (err) {
-      showNotification('error', 'Failed to update subscription settings');
+    } catch (err: any) {
+      console.error('Error updating subscription settings:', err);
+      if (err.message?.includes('exceeds the maximum allowed size')) {
+        showNotification('error', 'Images are too large. Please re-upload them.');
+      } else {
+        showNotification('error', 'Failed to update subscription settings');
+      }
       handleFirestoreError(err, OperationType.WRITE, 'settings/payment');
     }
   };
@@ -1359,15 +1434,34 @@ export default function AdminPanel() {
               {/* UPI Settings */}
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">UPI Settings</h3>
-                <div className="space-y-2">
-                  <label className="text-sm font-medium text-slate-500">UPI QR Code Image URL</label>
-                  <input
-                    type="text"
-                    value={qrCodeUrl}
-                    onChange={(e) => setQrCodeUrl(e.target.value)}
-                    placeholder="https://example.com/qr-code.png"
-                    className="w-full rounded-xl border border-slate-800 bg-slate-950/50 py-2 px-4 text-sm text-white focus:border-blue-500 focus:outline-none"
-                  />
+                <div className="space-y-3">
+                  <label className="text-sm font-medium text-slate-500">UPI QR Code</label>
+                  <div className="relative group max-w-[200px]">
+                    <div className="aspect-square w-full rounded-2xl border-2 border-dashed border-slate-800 bg-slate-950/50 flex items-center justify-center overflow-hidden transition-all group-hover:border-blue-500/50">
+                      {qrCodeUrl ? (
+                        <img src={qrCodeUrl} alt="UPI QR" className="w-full h-full object-contain p-2" />
+                      ) : (
+                        <div className="flex flex-col items-center gap-2 text-slate-600">
+                          <Upload className="h-8 w-8" />
+                          <span className="text-[10px] font-bold uppercase">Upload QR</span>
+                        </div>
+                      )}
+                      <input
+                        type="file"
+                        accept="image/*"
+                        onChange={(e) => handleFileChange(e, setQrCodeUrl)}
+                        className="absolute inset-0 opacity-0 cursor-pointer"
+                      />
+                    </div>
+                    {qrCodeUrl && (
+                      <button 
+                        onClick={() => setQrCodeUrl('')}
+                        className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white shadow-lg hover:bg-red-600 transition-all"
+                      >
+                        <X className="h-3 w-3" />
+                      </button>
+                    )}
+                  </div>
                 </div>
               </div>
 
@@ -1402,15 +1496,34 @@ export default function AdminPanel() {
               <div className="space-y-4">
                 <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">USDT Settings</h3>
                 <div className="space-y-4">
-                  <div className="space-y-2">
-                    <label className="text-sm font-medium text-slate-500">USDT QR Code URL</label>
-                    <input
-                      type="text"
-                      value={usdtQrCodeUrl}
-                      onChange={(e) => setUsdtQrCodeUrl(e.target.value)}
-                      placeholder="https://..."
-                      className="w-full rounded-xl border border-slate-800 bg-slate-950/50 py-2 px-4 text-sm text-white focus:border-blue-500 focus:outline-none"
-                    />
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-slate-500">USDT QR Code</label>
+                    <div className="relative group max-w-[200px]">
+                      <div className="aspect-square w-full rounded-2xl border-2 border-dashed border-slate-800 bg-slate-950/50 flex items-center justify-center overflow-hidden transition-all group-hover:border-blue-500/50">
+                        {usdtQrCodeUrl ? (
+                          <img src={usdtQrCodeUrl} alt="USDT QR" className="w-full h-full object-contain p-2" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 text-slate-600">
+                            <Upload className="h-8 w-8" />
+                            <span className="text-[10px] font-bold uppercase">Upload QR</span>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, setUsdtQrCodeUrl)}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                      </div>
+                      {usdtQrCodeUrl && (
+                        <button 
+                          onClick={() => setUsdtQrCodeUrl('')}
+                          className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white shadow-lg hover:bg-red-600 transition-all"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
                   </div>
                   <div className="space-y-2">
                     <label className="text-sm font-medium text-slate-500">USDT Wallet Address</label>
@@ -1433,6 +1546,108 @@ export default function AdminPanel() {
                     />
                   </div>
                 </div>
+              </div>
+
+              {/* Subscription QR Settings */}
+              <div className="space-y-4">
+                <h3 className="text-sm font-bold text-slate-400 uppercase tracking-wider">Subscription QR Codes</h3>
+                <div className="grid gap-6 sm:grid-cols-3">
+                  {/* Silver Plan */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-slate-500">Silver Plan QR</label>
+                    <div className="relative group">
+                      <div className="aspect-square w-full rounded-2xl border-2 border-dashed border-slate-800 bg-slate-950/50 flex flex-items-center justify-center overflow-hidden transition-all group-hover:border-blue-500/50">
+                        {silverQrCodeUrl ? (
+                          <img src={silverQrCodeUrl} alt="Silver QR" className="w-full h-full object-contain p-2" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 text-slate-600">
+                            <LucideIcons.Upload className="h-8 w-8" />
+                            <span className="text-[10px] font-bold uppercase">Upload Image</span>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, setSilverQrCodeUrl)}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                      </div>
+                      {silverQrCodeUrl && (
+                        <button 
+                          onClick={() => setSilverQrCodeUrl('')}
+                          className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white shadow-lg hover:bg-red-600 transition-all"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* Gold Plan */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-slate-500">Gold Plan QR</label>
+                    <div className="relative group">
+                      <div className="aspect-square w-full rounded-2xl border-2 border-dashed border-slate-800 bg-slate-950/50 flex flex-items-center justify-center overflow-hidden transition-all group-hover:border-blue-500/50">
+                        {goldQrCodeUrl ? (
+                          <img src={goldQrCodeUrl} alt="Gold QR" className="w-full h-full object-contain p-2" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 text-slate-600">
+                            <LucideIcons.Upload className="h-8 w-8" />
+                            <span className="text-[10px] font-bold uppercase">Upload Image</span>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, setGoldQrCodeUrl)}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                      </div>
+                      {goldQrCodeUrl && (
+                        <button 
+                          onClick={() => setGoldQrCodeUrl('')}
+                          className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white shadow-lg hover:bg-red-600 transition-all"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+
+                  {/* VIP Plan */}
+                  <div className="space-y-3">
+                    <label className="text-sm font-medium text-slate-500">VIP Plan QR</label>
+                    <div className="relative group">
+                      <div className="aspect-square w-full rounded-2xl border-2 border-dashed border-slate-800 bg-slate-950/50 flex flex-items-center justify-center overflow-hidden transition-all group-hover:border-blue-500/50">
+                        {vipQrCodeUrl ? (
+                          <img src={vipQrCodeUrl} alt="VIP QR" className="w-full h-full object-contain p-2" />
+                        ) : (
+                          <div className="flex flex-col items-center gap-2 text-slate-600">
+                            <LucideIcons.Upload className="h-8 w-8" />
+                            <span className="text-[10px] font-bold uppercase">Upload Image</span>
+                          </div>
+                        )}
+                        <input
+                          type="file"
+                          accept="image/*"
+                          onChange={(e) => handleFileChange(e, setVipQrCodeUrl)}
+                          className="absolute inset-0 opacity-0 cursor-pointer"
+                        />
+                      </div>
+                      {vipQrCodeUrl && (
+                        <button 
+                          onClick={() => setVipQrCodeUrl('')}
+                          className="absolute -top-2 -right-2 rounded-full bg-red-500 p-1 text-white shadow-lg hover:bg-red-600 transition-all"
+                        >
+                          <X className="h-3 w-3" />
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                </div>
+                <p className="text-[10px] text-slate-500 italic">
+                  Images are stored directly in the database. Please keep file sizes small (under 500KB).
+                </p>
               </div>
 
               {/* Referral & Deposit Limits */}

@@ -124,13 +124,10 @@ export default function AddFunds({ userProfile }: { userProfile: any }) {
 
               <div className="flex justify-center p-4 bg-white rounded-2xl">
                 <img 
-                  src={qrCodeUrl || '/qr-code.png'} 
+                  src={qrCodeUrl || 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=UPI%20Payment'} 
                   alt="Payment QR Code" 
                   className="w-64 h-64 object-contain"
                   referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = 'https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=Payment%20Gateway';
-                  }}
                 />
               </div>
 
@@ -158,13 +155,10 @@ export default function AddFunds({ userProfile }: { userProfile: any }) {
 
               <div className="flex justify-center p-4 bg-white rounded-2xl">
                 <img 
-                  src={usdtQrCodeUrl || '/qr-code.png'} 
+                  src={usdtQrCodeUrl || `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${usdtWalletAddress || 'USDT'}`} 
                   alt="USDT QR Code" 
                   className="w-64 h-64 object-contain"
                   referrerPolicy="no-referrer"
-                  onError={(e) => {
-                    (e.target as HTMLImageElement).src = `https://api.qrserver.com/v1/create-qr-code/?size=250x250&data=${usdtWalletAddress || 'USDT'}`;
-                  }}
                 />
               </div>
 
