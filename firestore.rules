@@ -1,0 +1,169 @@
+rules_version = '2';
+service cloud.firestore {
+  match /databases/{database}/documents {
+    // ===============================================================
+    // Assumed Data Model
+    // ===============================================================
+    // Collection: users
+    // Fields: uid, email, displayName, balance, role
+    //
+    // Collection: services
+    // Fields: name, category, pricePer1000, minOrder, maxOrder, description
+    //
+    // Collection: orders
+    // Fields: userId, serviceId, serviceName, link, quantity, charge, status, createdAt
+    // ===============================================================
+
+    // Helper Functions
+    function isAuthenticated() {
+      return request.auth != null;
+    }
+
+    function isOwner(userId) {
+      return isAuthenticated() && request.auth.uid == userId;
+    }
+
+    function isAdmin() {
+      return isAuthenticated() && (
+        request.auth.token.email == "bhas1122r@gmail.com" ||
+        (exists(/databases/$(database)/documents/users/$(request.auth.uid)) && 
+         get(/databases/$(database)/documents/users/$(request.auth.uid)).data.role == 'admin')
+      );
+    }
+
+    function isValidUser(data) {
+      return data.uid is string && data.uid.size() > 0 &&
+             data.email is string && data.email.size() > 0 &&
+             data.balance is number && data.balance >= 0 &&
+             data.role in ['admin', 'user'] &&
+             (!('referredBy' in data) || data.referredBy is string) &&
+             (!('referralEarnings' in data) || (data.referralEarnings is number && data.referralEarnings >= 0)) &&
+             (!('plan_type' in data) || data.plan_type in ['free', 'silver', 'gold', 'vip']) &&
+             (!('plan_expiry' in data) || (data.plan_expiry is string || data.plan_expiry == null));
+    }
+
+    function isValidSubscriptionRequest(data) {
+      return data.userId == request.auth.uid &&
+             data.userEmail is string &&
+             data.planType in ['silver', 'gold', 'vip'] &&
+             data.amount is number && data.amount >= 0 &&
+             data.transactionId is string && data.transactionId.size() > 0 &&
+             data.status == 'pending';
+    }
+
+    function isValidService(data) {
+      return data.name is string && data.name.size() > 0 && data.name.size() < 500 &&
+             data.category is string && data.category.size() > 0 && data.category.size() < 200 &&
+             data.pricePer1000 is number && data.pricePer1000 >= 0 &&
+             data.minOrder is number && data.minOrder > 0 &&
+             data.maxOrder is number && data.maxOrder >= data.minOrder &&
+             (!('description' in data) || data.description is string) &&
+             (!('externalId' in data) || (data.externalId is string || data.externalId is number)) &&
+             (!('provider' in data) || data.provider is string);
+    }
+
+    function isValidOrder(data) {
+      return data.userId == request.auth.uid &&
+             data.serviceId is string &&
+             data.link is string && data.link.size() > 0 && data.link.size() < 500 &&
+             data.quantity is number && data.quantity > 0 &&
+             data.charge is number && data.charge >= 0 &&
+             data.status in ['pending', 'processing', 'completed', 'cancelled'];
+    }
+
+    function isValidFundRequest(data) {
+      return data.userId == request.auth.uid &&
+             data.userEmail is string &&
+             data.amount is number && data.amount > 0 &&
+             data.transactionId is string && data.transactionId.size() > 0 &&
+             data.status == 'pending';
+    }
+
+    function isValidTransaction(data) {
+      return data.userId is string && data.userId.size() > 0 &&
+             data.amount is number &&
+             data.type in ['deposit', 'spend', 'referral', 'refund'] &&
+             data.description is string && data.description.size() > 0;
+    }
+
+    function isValidTicket(data) {
+      return data.userId == request.auth.uid &&
+             data.subject is string && data.subject.size() > 0 &&
+             data.request is string &&
+             data.status is string;
+    }
+
+    function isValidMessage(data) {
+      return data.ticketId is string &&
+             data.senderId is string &&
+             data.text is string && data.text.size() > 0 && data.text.size() < 5000;
+    }
+
+    // Rules
+    match /users/{userId} {
+      allow read: if isOwner(userId) || isAdmin();
+      allow create: if isAuthenticated() && isOwner(userId) && isValidUser(request.resource.data);
+      allow update: if isAdmin() || (isOwner(userId) && request.resource.data.role == resource.data.role && 
+                                      request.resource.data.balance <= resource.data.balance);
+    }
+
+    match /services/{serviceId} {
+      allow read: if true;
+      allow create, update: if isAdmin() && isValidService(request.resource.data);
+      allow delete: if isAdmin();
+    }
+
+    match /orders/{orderId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidOrder(request.resource.data);
+      allow update: if isAdmin();
+    }
+
+    match /navigation/{itemId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /fundRequests/{requestId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidFundRequest(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /subscriptionRequests/{requestId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidSubscriptionRequest(request.resource.data);
+      allow update: if isAdmin();
+      allow delete: if isAdmin();
+    }
+
+    match /transactions/{transactionId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAdmin() || (
+        isAuthenticated() && 
+        request.resource.data.userId == request.auth.uid && 
+        isValidTransaction(request.resource.data) &&
+        (request.resource.data.type != 'deposit' || request.resource.data.amount <= 1)
+      );
+      allow update, delete: if isAdmin();
+    }
+
+    match /settings/{settingId} {
+      allow read: if true;
+      allow write: if isAdmin();
+    }
+
+    match /tickets/{ticketId} {
+      allow read: if isAuthenticated() && (resource.data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidTicket(request.resource.data);
+      allow update: if isAdmin() || (isAuthenticated() && resource.data.userId == request.auth.uid && request.resource.data.status == resource.data.status);
+    }
+
+    match /tickets/{ticketId}/messages/{messageId} {
+      allow read: if isAuthenticated() && (get(/databases/$(database)/documents/tickets/$(ticketId)).data.userId == request.auth.uid || isAdmin());
+      allow create: if isAuthenticated() && isValidMessage(request.resource.data) && 
+                    (request.resource.data.senderId == request.auth.uid || isAdmin() || request.resource.data.senderId == 'ai');
+    }
+  }
+}

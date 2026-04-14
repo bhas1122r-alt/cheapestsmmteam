@@ -1,0 +1,188 @@
+{
+  "entities": {
+    "User": {
+      "title": "User Profile",
+      "description": "Stores user balance and role information.",
+      "type": "object",
+      "properties": {
+        "uid": { "type": "string" },
+        "email": { "type": "string", "format": "email" },
+        "displayName": { "type": "string" },
+        "balance": { "type": "number", "description": "User balance in INR" },
+        "role": { "type": "string", "enum": ["admin", "user"] },
+        "referredBy": { "type": "string", "description": "UID of the referrer" },
+        "referralEarnings": { "type": "number", "description": "Total earned from referrals" },
+        "plan_type": { "type": "string", "enum": ["free", "silver", "gold", "vip"], "default": "free" },
+        "plan_expiry": { "type": "string", "format": "date-time", "description": "Timestamp when the plan expires" }
+      },
+      "required": ["uid", "email", "balance", "role"]
+    },
+    "SubscriptionRequest": {
+      "title": "Subscription Request",
+      "description": "A request by a user to upgrade their plan.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "planType": { "type": "string", "enum": ["silver", "gold", "vip"] },
+        "amount": { "type": "number" },
+        "transactionId": { "type": "string", "description": "UTR or Transaction ID" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userEmail", "planType", "amount", "transactionId", "status", "createdAt"]
+    },
+    "Service": {
+      "title": "SMM Service",
+      "description": "Details of an SMM service offered.",
+      "type": "object",
+      "properties": {
+        "name": { "type": "string" },
+        "category": { "type": "string" },
+        "pricePer1000": { "type": "number", "description": "Price per 1000 units in INR" },
+        "minOrder": { "type": "number" },
+        "maxOrder": { "type": "number" },
+        "description": { "type": "string" }
+      },
+      "required": ["name", "category", "pricePer1000", "minOrder", "maxOrder"]
+    },
+    "Order": {
+      "title": "User Order",
+      "description": "An order placed by a user for a service.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "serviceId": { "type": "string" },
+        "serviceName": { "type": "string" },
+        "link": { "type": "string" },
+        "quantity": { "type": "number" },
+        "charge": { "type": "number", "description": "Total charge in INR" },
+        "status": { "type": "string", "enum": ["pending", "processing", "completed", "cancelled"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "serviceId", "link", "quantity", "charge", "status", "createdAt"]
+    },
+    "NavigationItem": {
+      "title": "Navigation Item",
+      "description": "A dynamic menu item in the sidebar.",
+      "type": "object",
+      "properties": {
+        "label": { "type": "string" },
+        "icon": { "type": "string", "description": "Lucide icon name" },
+        "path": { "type": "string" },
+        "isVisible": { "type": "boolean" },
+        "order": { "type": "number" },
+        "badge": { "type": "string" }
+      },
+      "required": ["label", "icon", "path", "isVisible", "order"]
+    },
+    "FundRequest": {
+      "title": "Fund Request",
+      "description": "A request by a user to add funds to their balance.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "userEmail": { "type": "string", "format": "email" },
+        "amount": { "type": "number" },
+        "transactionId": { "type": "string", "description": "UTR or Transaction ID" },
+        "status": { "type": "string", "enum": ["pending", "approved", "rejected"] },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "userEmail", "amount", "transactionId", "status", "createdAt"]
+    },
+    "Transaction": {
+      "title": "User Transaction",
+      "description": "A record of any financial movement (deposit, spend, referral, refund).",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "amount": { "type": "number" },
+        "type": { "type": "string", "enum": ["deposit", "spend", "referral", "refund"] },
+        "description": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "amount", "type", "description", "createdAt"]
+    },
+    "Ticket": {
+      "title": "Support Ticket",
+      "description": "A support request or complaint from a user.",
+      "type": "object",
+      "properties": {
+        "userId": { "type": "string" },
+        "subject": { "type": "string" },
+        "orderId": { "type": "string" },
+        "request": { "type": "string", "description": "Category of the request (e.g., Order, Payment, Service, Other)" },
+        "status": { "type": "string", "enum": ["open", "closed", "pending"] },
+        "createdAt": { "type": "string", "format": "date-time" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["userId", "subject", "request", "status", "createdAt"]
+    },
+    "Message": {
+      "title": "Ticket Message",
+      "description": "A message within a support ticket chat.",
+      "type": "object",
+      "properties": {
+        "ticketId": { "type": "string" },
+        "senderId": { "type": "string", "description": "UID of the sender (user, admin, or 'ai')" },
+        "senderName": { "type": "string" },
+        "text": { "type": "string" },
+        "createdAt": { "type": "string", "format": "date-time" }
+      },
+      "required": ["ticketId", "senderId", "text", "createdAt"]
+    },
+    "Setting": {
+      "title": "App Setting",
+      "description": "Global application settings.",
+      "type": "object",
+      "properties": {
+        "qrCodeUrl": { "type": "string", "description": "URL of the payment QR code" },
+        "usdtQrCodeUrl": { "type": "string", "description": "URL of the USDT QR code" },
+        "minDepositINR": { "type": "number", "default": 10 },
+        "minDepositUSDT": { "type": "number", "default": 10 },
+        "referralBonusPercent": { "type": "number", "default": 2 },
+        "smmApiUrl": { "type": "string" },
+        "smmApiKey": { "type": "string" },
+        "updatedAt": { "type": "string", "format": "date-time" }
+      }
+    }
+  },
+  "firestore": {
+    "/users/{userId}": {
+      "schema": "User",
+      "description": "User profiles and settings."
+    },
+    "/services/{serviceId}": {
+      "schema": "Service",
+      "description": "Available SMM services."
+    },
+    "/orders/{orderId}": {
+      "schema": "Order",
+      "description": "History of orders placed by users."
+    },
+    "/navigation/{itemId}": {
+      "schema": "NavigationItem",
+      "description": "Dynamic sidebar navigation items."
+    },
+    "/fundRequests/{requestId}": {
+      "schema": "FundRequest",
+      "description": "Requests for adding funds to user accounts."
+    },
+    "/subscriptionRequests/{requestId}": {
+      "schema": "SubscriptionRequest",
+      "description": "Requests for upgrading user plans."
+    },
+    "/settings/{settingId}": {
+      "schema": "Setting",
+      "description": "Global application settings."
+    },
+    "/tickets/{ticketId}": {
+      "schema": "Ticket",
+      "description": "Support tickets created by users."
+    },
+    "/tickets/{ticketId}/messages/{messageId}": {
+      "schema": "Message",
+      "description": "Messages within a support ticket."
+    }
+  }
+}
